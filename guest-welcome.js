@@ -292,18 +292,34 @@ function speak(id) {
     const utterance = new SpeechSynthesisUtterance(text);
     activeUtterance = utterance;
 
-    const selectedVoice = preferredVoice();
+  
+const selectedVoice = preferredVoice();
 
-    if (selectedVoice) {
-      utterance.voice = selectedVoice;
-      utterance.lang = selectedVoice.lang || "en-IN";
-    } else {
-      utterance.lang = "en-IN";
-    }
+if (!selectedVoice) {
+  halo?.classList.remove("talking");
 
-    utterance.rate = 0.95;
-    utterance.pitch = 1.10;
-    utterance.volume = 1;
+  alertBox.textContent =
+    "Female NOOR voice unavailable. Please install or enable a supported female voice.";
+
+  console.warn(
+    "NOOR: No recognized female voice is available on this device."
+  );
+
+  finish();
+  return;
+}
+
+const utterance = new SpeechSynthesisUtterance(
+  sayable(parts[partIndex++])
+);
+
+activeUtterance = utterance;
+
+utterance.voice = selectedVoice;
+utterance.lang = selectedVoice.lang;
+utterance.rate = 0.95;
+utterance.pitch = 1.10;
+utterance.volume = 1;
 
     let settled = false;
 
