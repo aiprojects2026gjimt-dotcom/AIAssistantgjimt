@@ -10,16 +10,19 @@
 const guests = [
   {
     name: "Captain Mantej Singh Cheema",
-    designation: "Assistant Director of Youth Service",
+    honorific: "Sir",
+    designation: "Assistant Director of Youth Services",
     organization: ""
   },
   {
     name: "J.S. Bedi",
+      honorific: "Sir",
     designation: "Chairman",
     organization: "Gian Jyoti Institute of Management and Technology"
   },
   {
     name: "Dr. Aneet Bedi",
+      honorific: "Mam",
     designation: "Director",
     organization: "Gian Jyoti Institute of Management and Technology"
   }
