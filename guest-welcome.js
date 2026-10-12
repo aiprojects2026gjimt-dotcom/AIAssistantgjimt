@@ -1,7 +1,11 @@
 
 "use strict";
 
-// NOOR Guest Welcome - Updated Speech Script
+/* ==========================================
+   GJIMT NOOR - GUEST WELCOME
+   Female Voice + Automatic Welcome
+   Three Guests + Continuous Slideshow
+========================================== */
 
 const guests = [
   {
@@ -21,18 +25,24 @@ const guests = [
   }
 ];
 
-const slides = [...document.querySelectorAll(".guest-slide")];
+const slides = [
+  ...document.querySelectorAll(".guest-slide")
+];
+
 const halo = document.querySelector(".halo");
 const line = document.getElementById("line");
 const alertBox = document.getElementById("guestAlert");
 const progress = document.getElementById("guestProgress");
 
 const MIN_SLIDE_MS = 18000;
+const VOICE_WAIT_MS = 3500;
 
 let current = 0;
 let token = 0;
 let slideStart = 0;
 let slideTimer = null;
+let voiceWaitTimer = null;
+let chunkWatchdog = null;
 
 let ctx = null;
 let musicTimer = null;
@@ -40,18 +50,22 @@ let musicTimer = null;
 let noorStopped = false;
 let audioEnabled = true;
 let activeUtterance = null;
-let chunkWatchdog = null;
+let speechStarted = false;
+let speechBlocked = false;
 
-// Preferred female voice
+/* ==========================================
+   FEMALE VOICE SELECTION
+========================================== */
 
 function preferredVoice() {
-  if (!("speechSynthesis" in window)) return null;
+  if (!("speechSynthesis" in window)) {
+    return null;
+  }
 
   const voices = speechSynthesis.getVoices();
 
   if (!voices.length) return null;
 
-  // Prefer known female voices only.
   const femaleNames = [
     "Microsoft Neerja",
     "Microsoft Heera",
@@ -69,19 +83,59 @@ function preferredVoice() {
 
   for (const name of femaleNames) {
     const voice = voices.find(v =>
-      v.name.toLowerCase().includes(name.toLowerCase())
+      v.name.toLowerCase().includes(
+        name.toLowerCase()
+      )
     );
 
     if (voice) return voice;
   }
 
-  // Other voices explicitly identified as female.
   return voices.find(v =>
     /female|woman/i.test(v.name)
   ) || null;
 }
 
-// Improve pronunciation for NOOR
+/* ==========================================
+   LOAD VOICES BEFORE SPEAKING
+========================================== */
+
+function waitForFemaleVoice(callback, id) {
+  clearTimeout(voiceWaitTimer);
+
+  const startedAt = Date.now();
+
+  function check() {
+    if (id !== token || noorStopped) return;
+
+    const voice = preferredVoice();
+
+    if (voice) {
+      callback(voice);
+      return;
+    }
+
+    if (
+      Date.now() - startedAt >= VOICE_WAIT_MS
+    ) {
+      callback(null);
+      return;
+    }
+
+    voiceWaitTimer = setTimeout(check, 200);
+  }
+
+  if ("speechSynthesis" in window) {
+    speechSynthesis.getVoices();
+  }
+
+  check();
+}
+
+/* ==========================================
+   NOOR PRONUNCIATION
+========================================== */
+
 function sayable(text) {
   return String(text)
     .replace(/GJIMT/gi, "G. J. I. M. T.")
@@ -90,23 +144,28 @@ function sayable(text) {
     .replace(/Sat Sri Akal/gi, "Sat Shree Akaal");
 }
 
-// Updated guest welcome sentences
-function welcomeParts(guest) {
+/* ==========================================
+   GUEST WELCOME MESSAGES
+========================================== */
 
+function welcomeParts(guest) {
   let fullDesignation = guest.designation;
 
   if (guest.organization) {
-    fullDesignation += " of " + guest.organization;
+    fullDesignation +=
+      " of " + guest.organization;
   }
 
   return [
     "Sat Shri Akal!",
 
-    "I am NOOR, G J I M T AI Assistant.",
+    "I am NOOR, G. J. I. M. T. AI Assistant.",
 
-    "NOOR warmly welcomes " + guest.name + ".",
+    "NOOR warmly welcomes " +
+      guest.name + ".",
 
-    guest.name + " is " + fullDesignation + ".",
+    guest.name +
+      " is " + fullDesignation + ".",
 
     "Welcome to the Gian Jyoti Blood Donation Camp.",
 
@@ -114,7 +173,10 @@ function welcomeParts(guest) {
   ];
 }
 
-// Stop background music
+/* ==========================================
+   BACKGROUND MUSIC
+========================================== */
+
 function stopMusic() {
   if (musicTimer) {
     clearInterval(musicTimer);
@@ -122,9 +184,7 @@ function stopMusic() {
   }
 }
 
-// Soft background music
 function startMusic() {
-
   if (
     noorStopped ||
     !audioEnabled ||
@@ -142,22 +202,31 @@ function startMusic() {
   ];
 
   function play() {
-
-    if (!ctx || ctx.state !== "running" || noorStopped) {
-      return;
-    }
+    if (
+      !ctx ||
+      ctx.state !== "running" ||
+      noorStopped
+    ) return;
 
     const t = ctx.currentTime + 0.03;
 
-    for (const [j, f] of chords[n++ % chords.length].entries()) {
+    for (
+      const [j, frequency] of
+      chords[n++ % chords.length].entries()
+    ) {
+      const oscillator =
+        ctx.createOscillator();
 
-      const oscillator = ctx.createOscillator();
       const gain = ctx.createGain();
 
       oscillator.type = "sine";
-      oscillator.frequency.value = f;
+      oscillator.frequency.value =
+        frequency;
 
-      gain.gain.setValueAtTime(0.0001, t + j * 0.06);
+      gain.gain.setValueAtTime(
+        0.0001,
+        t + j * 0.06
+      );
 
       gain.gain.exponentialRampToValueAtTime(
         0.015,
@@ -181,35 +250,46 @@ function startMusic() {
   musicTimer = setInterval(play, 3300);
 }
 
-// Attempt to enable music
 function tryMusic() {
+  if (noorStopped || !audioEnabled) return;
 
   try {
     const AudioClass =
-      window.AudioContext || window.webkitAudioContext;
+      window.AudioContext ||
+      window.webkitAudioContext;
 
     if (!AudioClass) return;
 
     ctx = ctx || new AudioClass();
 
     if (ctx.state === "suspended") {
-      ctx.resume().then(startMusic).catch(() => {});
+      ctx.resume()
+        .then(startMusic)
+        .catch(() => {});
     } else {
       startMusic();
     }
 
   } catch (error) {
-    console.warn("NOOR music permission:", error);
+    console.warn(
+      "NOOR music permission:",
+      error
+    );
   }
 }
 
-// Stop speech safely
+/* ==========================================
+   CLEAR SPEECH SAFELY
+========================================== */
+
 function clearSpeech() {
-
   clearTimeout(chunkWatchdog);
-  chunkWatchdog = null;
+  clearTimeout(voiceWaitTimer);
 
+  chunkWatchdog = null;
+  voiceWaitTimer = null;
   activeUtterance = null;
+  speechStarted = false;
 
   if ("speechSynthesis" in window) {
     try {
@@ -220,33 +300,43 @@ function clearSpeech() {
   halo?.classList.remove("talking");
 }
 
-// Move to next guest
-function scheduleNext(id) {
+/* ==========================================
+   NEXT GUEST SLIDE
+========================================== */
 
+function scheduleNext(id) {
   clearTimeout(slideTimer);
 
   const remaining = Math.max(
     1300,
-    MIN_SLIDE_MS - (Date.now() - slideStart)
+    MIN_SLIDE_MS -
+      (Date.now() - slideStart)
   );
 
   slideTimer = setTimeout(() => {
-
     if (id === token) {
       show((current + 1) % guests.length);
     }
-
   }, remaining);
 }
 
-// Speak complete welcome message
-function speak(id) {
+/* ==========================================
+   NOOR SPEECH ENGINE
+========================================== */
 
+function speak(id) {
   const guest = guests[current];
   const parts = welcomeParts(guest);
 
-  line.textContent = parts.join(" ");
-  alertBox.textContent = "♥ NOOR welcomes " + guest.name + "!";
+  if (line) {
+    line.textContent = parts.join(" ");
+  }
+
+  if (alertBox) {
+    alertBox.textContent =
+      "♥ NOOR welcomes " +
+      guest.name + "!";
+  }
 
   stopMusic();
 
@@ -255,7 +345,6 @@ function speak(id) {
     !audioEnabled ||
     !("speechSynthesis" in window)
   ) {
-    if (!noorStopped) tryMusic();
     scheduleNext(id);
     return;
   }
@@ -264,21 +353,24 @@ function speak(id) {
   let complete = false;
 
   function finish() {
-
     if (complete || id !== token) return;
 
     complete = true;
 
     clearTimeout(chunkWatchdog);
+
     halo?.classList.remove("talking");
 
     tryMusic();
     scheduleNext(id);
   }
 
-  function nextPart() {
-
-    if (id !== token || noorStopped || complete) return;
+  function nextPart(voice) {
+    if (
+      id !== token ||
+      noorStopped ||
+      complete
+    ) return;
 
     clearTimeout(chunkWatchdog);
 
@@ -287,92 +379,107 @@ function speak(id) {
       return;
     }
 
-    const text = sayable(parts[partIndex++]);
+    const text =
+      sayable(parts[partIndex++]);
 
-    const utterance = new SpeechSynthesisUtterance(text);
+    // Only ONE utterance is created.
+    const utterance =
+      new SpeechSynthesisUtterance(text);
+
     activeUtterance = utterance;
 
-  
-const selectedVoice = preferredVoice();
-
-if (!selectedVoice) {
-  halo?.classList.remove("talking");
-
-  alertBox.textContent =
-    "Female NOOR voice unavailable. Please install or enable a supported female voice.";
-
-  console.warn(
-    "NOOR: No recognized female voice is available on this device."
-  );
-
-  finish();
-  return;
-}
-
-const utterance = new SpeechSynthesisUtterance(
-  sayable(parts[partIndex++])
-);
-
-activeUtterance = utterance;
-
-utterance.voice = selectedVoice;
-utterance.lang = selectedVoice.lang;
-utterance.rate = 0.95;
-utterance.pitch = 1.10;
-utterance.volume = 1;
+    utterance.voice = voice;
+    utterance.lang = voice.lang;
+    utterance.rate = 0.95;
+    utterance.pitch = 1.10;
+    utterance.volume = 1;
 
     let settled = false;
 
     function advance() {
-
-      if (settled || id !== token) return;
+      if (
+        settled ||
+        id !== token ||
+        complete
+      ) return;
 
       settled = true;
       clearTimeout(chunkWatchdog);
 
-      nextPart();
+      nextPart(voice);
     }
 
     utterance.onstart = () => {
-      if (id === token) {
-        halo?.classList.add("talking");
-      }
+      if (id !== token) return;
+
+      speechStarted = true;
+      speechBlocked = false;
+
+      halo?.classList.add("talking");
     };
 
     utterance.onend = advance;
 
     utterance.onerror = event => {
+      if (id !== token) return;
 
-      console.warn("NOOR speech error:", event.error);
+      console.warn(
+        "NOOR speech error:",
+        event.error
+      );
 
       if (
         event.error === "not-allowed" ||
         event.error === "audio-busy"
       ) {
-        audioEnabled = false;
+        speechBlocked = true;
 
-        alertBox.textContent =
-          "♥ Welcome " + guest.name +
-          " • Tap Resume NOOR if browser blocks sound";
+        if (alertBox) {
+          alertBox.textContent =
+            "♥ Welcome " +
+            guest.name +
+            " • Tap Repeat / Resume NOOR to enable sound";
+        }
 
         finish();
+        return;
+      }
+
+      if (
+        event.error === "canceled" ||
+        event.error === "interrupted"
+      ) {
         return;
       }
 
       advance();
     };
 
-    // Fallback for stalled speech
+    // Prevent speech from stalling forever.
     chunkWatchdog = setTimeout(() => {
+      if (
+        id !== token ||
+        settled ||
+        complete
+      ) return;
 
-      if (id !== token || settled) return;
+      if (!speechStarted) {
+        speechBlocked = true;
+
+        if (alertBox) {
+          alertBox.textContent =
+            "Tap Repeat / Resume NOOR to enable voice";
+        }
+
+        finish();
+        return;
+      }
 
       try {
         speechSynthesis.cancel();
       } catch (error) {}
 
       advance();
-
     }, 35000);
 
     try {
@@ -384,18 +491,40 @@ utterance.volume = 1;
     }
   }
 
-  try {
-    speechSynthesis.cancel();
-    speechSynthesis.resume();
-  } catch (error) {}
+  waitForFemaleVoice(voice => {
+    if (id !== token || noorStopped) return;
 
-  nextPart();
+    if (!voice) {
+      if (alertBox) {
+        alertBox.textContent =
+          "Female NOOR voice not available on this device";
+      }
+
+      console.warn(
+        "No recognized female speech voice is installed."
+      );
+
+      finish();
+      return;
+    }
+
+    try {
+      speechSynthesis.cancel();
+      speechSynthesis.resume();
+    } catch (error) {}
+
+    nextPart(voice);
+  }, id);
 }
 
-// Display guest slide
-function show(index) {
+/* ==========================================
+   DISPLAY GUEST SLIDE
+========================================== */
 
-  current = (index + guests.length) % guests.length;
+function show(index) {
+  current =
+    (index + guests.length) %
+    guests.length;
 
   token++;
   slideStart = Date.now();
@@ -404,55 +533,81 @@ function show(index) {
   clearSpeech();
   stopMusic();
 
-  slides.forEach((slide, index) => {
-
+  slides.forEach((slide, i) => {
     slide.classList.toggle(
       "active",
-      index === current
+      i === current
     );
 
     slide.setAttribute(
       "aria-hidden",
-      String(index !== current)
+      String(i !== current)
     );
   });
 
-  progress.textContent =
-    `Guest ${current + 1} of ${guests.length}`;
+  if (progress) {
+    progress.textContent =
+      `Guest ${current + 1} of ${guests.length}`;
+  }
 
   speak(token);
 }
 
-// Resume NOOR
-function resumeNoor() {
+/* ==========================================
+   REPEAT / RESUME NOOR
+========================================== */
 
+function resumeNoor() {
   noorStopped = false;
   audioEnabled = true;
+  speechBlocked = false;
+
+  if ("speechSynthesis" in window) {
+    try {
+      speechSynthesis.cancel();
+      speechSynthesis.resume();
+      speechSynthesis.getVoices();
+    } catch (error) {}
+  }
 
   tryMusic();
   show(current);
 }
 
-// Previous guest
+/* ==========================================
+   PREVIOUS GUEST
+========================================== */
+
 document.getElementById("prevGuest")
-  .addEventListener("click", () => {
+  ?.addEventListener("click", () => {
     show(current - 1);
   });
 
-// Next guest
+/* ==========================================
+   NEXT GUEST
+========================================== */
+
 document.getElementById("nextGuest")
-  .addEventListener("click", () => {
+  ?.addEventListener("click", () => {
     show(current + 1);
   });
 
-// Repeat / Resume NOOR
+/* ==========================================
+   REPEAT BUTTON
+========================================== */
+
 document.getElementById("repeatWelcome")
-  .addEventListener("click", resumeNoor);
+  ?.addEventListener(
+    "click",
+    resumeNoor
+  );
 
-// Stop NOOR
+/* ==========================================
+   STOP NOOR BUTTON
+========================================== */
+
 document.getElementById("stopNoor")
-  .addEventListener("click", () => {
-
+  ?.addEventListener("click", () => {
     noorStopped = true;
     audioEnabled = false;
 
@@ -465,54 +620,81 @@ document.getElementById("stopNoor")
       ctx.suspend().catch(() => {});
     }
 
-    alertBox.textContent =
-      "NOOR stopped • Guest slideshow continues";
+    if (alertBox) {
+      alertBox.textContent =
+        "NOOR stopped • Guest slideshow continues";
+    }
 
     scheduleNext(token);
   });
 
-// Handle tab visibility
-document.addEventListener("visibilitychange", () => {
+/* ==========================================
+   PAGE VISIBILITY
+========================================== */
 
-  if (document.hidden) {
+document.addEventListener(
+  "visibilitychange",
+  () => {
+    if (document.hidden) {
+      token++;
 
-    token++;
+      clearSpeech();
+      stopMusic();
+      clearTimeout(slideTimer);
 
-    clearSpeech();
-    stopMusic();
-    clearTimeout(slideTimer);
-
-  } else {
-
-    show(current);
+    } else {
+      show(current);
+    }
   }
-});
+);
 
-// Automatic welcome on page load
+/* ==========================================
+   AUTOMATIC WELCOME ON PAGE LOAD
+========================================== */
+
 function autoWelcome() {
-
   if ("speechSynthesis" in window) {
-
     try {
       speechSynthesis.getVoices();
       speechSynthesis.resume();
     } catch (error) {}
   }
 
+  // Attempt automatic audio playback.
   tryMusic();
+
+  // Show first guest and attempt speech.
   show(0);
 }
 
-// Start automatically
-if (document.readyState === "loading") {
+/* ==========================================
+   BROWSER VOICE INITIALIZATION
+========================================== */
 
+if ("speechSynthesis" in window) {
+  speechSynthesis.getVoices();
+
+  speechSynthesis.addEventListener?.(
+    "voiceschanged",
+    () => {
+      console.log(
+        "NOOR voices loaded:",
+        speechSynthesis.getVoices().length
+      );
+    }
+  );
+}
+
+/* ==========================================
+   START ON PAGE LOAD
+========================================== */
+
+if (document.readyState === "loading") {
   document.addEventListener(
     "DOMContentLoaded",
     autoWelcome,
     { once: true }
   );
-
 } else {
-
   autoWelcome();
 }
