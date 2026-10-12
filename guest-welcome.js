@@ -10,7 +10,7 @@
 const guests = [
   {
     name: "Captain Mantej Singh Cheema",
-    designation: "Assistant Director of Youth Welfare",
+    designation: "Assistant Director of Youth Service",
     organization: ""
   },
   {
@@ -138,7 +138,7 @@ function waitForFemaleVoice(callback, id) {
 
 function sayable(text) {
   return String(text)
-    .replace(/GJIMT/gi, "G. J. I. M. T.")
+    .replace(/GJIMT/gi, "G J I M T")
     .replace(/Gian Jyoti/gi, "Gyaan Jyoti")
     .replace(/Sat Shri Akal/gi, "Sat Shree Akaal")
     .replace(/Sat Sri Akal/gi, "Sat Shree Akaal");
@@ -159,7 +159,7 @@ function welcomeParts(guest) {
   return [
     "Sat Shri Akal!",
 
-    "I am NOOR, G. J. I. M. T. AI Assistant.",
+    "I am NOOR, G J I M T AI Assistant.",
 
     "NOOR warmly welcomes " +
       guest.name + ".",
