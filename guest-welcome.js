@@ -16,13 +16,13 @@ const guests = [
   },
   {
     name: "J.S. Bedi",
-      honorific: "Sir",
+    honorific: "Sir",
     designation: "Chairman",
     organization: "Gian Jyoti Institute of Management and Technology"
   },
   {
     name: "Dr. Aneet Bedi",
-      honorific: "Mam",
+    honorific: "Ma'am",
     designation: "Director",
     organization: "Gian Jyoti Institute of Management and Technology"
   }
@@ -55,6 +55,9 @@ let audioEnabled = true;
 let activeUtterance = null;
 let speechStarted = false;
 let speechBlocked = false;
+
+// NOOR introduces herself only once per page visit.
+let noorIntroduced = false;
 
 /* ==========================================
    FEMALE VOICE SELECTION
@@ -159,21 +162,31 @@ function welcomeParts(guest) {
       " of " + guest.organization;
   }
 
-  return [
-    "Sat Shri Akal!",
+  const guestName =
+    guest.name + " " + guest.honorific;
 
-    "I am NOOR, G J I M T AI Assistant.",
+  const parts = [
+    "Sat Shri Akal!"
+  ];
 
-    "NOOR warmly welcomes " +
-      guest.name + ".",
+  // Introduce NOOR only once, not for every guest.
+  if (!noorIntroduced) {
+    parts.push(
+      "I am NOOR, G J I M T AI Assistant."
+    );
+  }
 
-    guest.name +
-      " is " + fullDesignation + ".",
+  parts.push(
+    "NOOR warmly welcomes " + guestName + ".",
+
+    guestName + " is " + fullDesignation + ".",
 
     "Welcome to the Gian Jyoti Blood Donation Camp.",
 
     "Thank you for your presence and support."
-  ];
+  );
+
+  return parts;
 }
 
 /* ==========================================
@@ -338,7 +351,7 @@ function speak(id) {
   if (alertBox) {
     alertBox.textContent =
       "♥ NOOR welcomes " +
-      guest.name + "!";
+      guest.name + " " + guest.honorific + "!";
   }
 
   stopMusic();
@@ -385,7 +398,6 @@ function speak(id) {
     const text =
       sayable(parts[partIndex++]);
 
-    // Only ONE utterance is created.
     const utterance =
       new SpeechSynthesisUtterance(text);
 
@@ -417,6 +429,11 @@ function speak(id) {
 
       speechStarted = true;
       speechBlocked = false;
+
+      // Mark introduction complete when speech begins.
+      if (!noorIntroduced) {
+        noorIntroduced = true;
+      }
 
       halo?.classList.add("talking");
     };
@@ -458,7 +475,6 @@ function speak(id) {
       advance();
     };
 
-    // Prevent speech from stalling forever.
     chunkWatchdog = setTimeout(() => {
       if (
         id !== token ||
@@ -663,10 +679,7 @@ function autoWelcome() {
     } catch (error) {}
   }
 
-  // Attempt automatic audio playback.
   tryMusic();
-
-  // Show first guest and attempt speech.
   show(0);
 }
 
