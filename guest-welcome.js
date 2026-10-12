@@ -43,10 +43,16 @@ let activeUtterance = null;
 let chunkWatchdog = null;
 
 // Preferred female voice
-function preferredVoice() {
-  const voices = window.speechSynthesis?.getVoices() || [];
 
-  const preferred = [
+function preferredVoice() {
+  if (!("speechSynthesis" in window)) return null;
+
+  const voices = speechSynthesis.getVoices();
+
+  if (!voices.length) return null;
+
+  // Prefer known female voices only.
+  const femaleNames = [
     "Microsoft Neerja",
     "Microsoft Heera",
     "Microsoft Swara",
@@ -56,27 +62,23 @@ function preferredVoice() {
     "Lekha",
     "Samantha",
     "Karen",
+    "Moira",
+    "Tessa",
     "Microsoft Zira"
   ];
 
-  for (const name of preferred) {
-    const found = voices.find(v =>
+  for (const name of femaleNames) {
+    const voice = voices.find(v =>
       v.name.toLowerCase().includes(name.toLowerCase())
     );
 
-    if (found) return found;
+    if (voice) return voice;
   }
 
-  return (
-    voices.find(v =>
-      /female|woman|neerja|heera|swara|veena|lekha|samantha|karen|zira/i.test(v.name)
-    ) ||
-    voices.find(v => /^en[-_]IN/i.test(v.lang)) ||
-    voices.find(v => /^hi[-_]IN/i.test(v.lang)) ||
-    voices.find(v => v.default) ||
-    voices[0] ||
-    null
-  );
+  // Other voices explicitly identified as female.
+  return voices.find(v =>
+    /female|woman/i.test(v.name)
+  ) || null;
 }
 
 // Improve pronunciation for NOOR
